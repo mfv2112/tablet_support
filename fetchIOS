@@ -47,7 +47,7 @@ if [[ $DOWNLOAD == 'true' && ! -z $release ]]; then
   echo "Found $release for $model / $identifier at $dl_url"
   fn_name=$(basename $dl_url)
   if [[ -e $fn_name ]]; then
-    localsha=$(shasum $fn_name)
+    localsha=$(shasum $fn_name | awk '{ print $1 }')
     remotesha=$(curl -s 'https://api.ipsw.me/v4/device/'${identifier}'?type=ipsw' | jq -r '.["firmwares"][] | select( .signed == true ) | select( .version == "'${release}'") | .sha1sum ')
     echo "remote: $remotesha"
     echo "local:  $localsha"
