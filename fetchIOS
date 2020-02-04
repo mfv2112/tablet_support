@@ -1,0 +1,59 @@
+#!/usr/bin/env zsh
+
+usage() {
+  print "Usage: fetchIOS -m model [ -l ][ -d -r release ]"
+  exit 1
+}
+
+#usage
+
+while getopts 'm:r:ld' arg; do
+  #print "arg = [$arg]"
+  case $arg in
+    m) model=$OPTARG;;
+    r) release=$OPTARG;;
+    d) DOWNLOAD=true;;
+    l) LIST=true;;
+    h|\?|i\*) usage ;; 
+  esac
+done
+
+# abandon read approach,zsh read is broken
+# read -p "Enter the model number of the device (eg A1566)" model
+
+if [[ ! -z ${model} ]]; then
+  echo "Looking up ${model}"
+  identifier=$(curl -s https://api.ipsw.me/v4/model/${model} | jq -r '.identifier')
+else
+  print "Error: No model given!"
+  usage
+  exit 1
+fi
+
+if [[ $LIST ]]; then
+  releases=("${(@f)$(curl -s 'https://api.ipsw.me/v4/device/'${identifier}'?type=ipsw' | jq -r '.["firmwares"][] | select( .signed == true ) | .version')}")
+  printf '%s\n' "${releases[@]}"
+fi
+
+if [[ $DOWNLOAD && ! -z $release ]]; then
+  dl_url=$(curl -s 'https://api.ipsw.me/v4/device/'${identifier}'?type=ipsw' | jq -r '.["firmwares"][] | select( .signed == true ) | select( .version == "'${release}'") | .url ')
+  echo "Found $release for $model / $identifier at $dl_url"
+  fn_name=$(basename $dl_url)
+  if [[ -e $fn_name ]]; then
+    localsha=$(shasum $fn_name)
+    remotesha=$(curl -s 'https://api.ipsw.me/v4/device/'${identifier}'?type=ipsw' | jq -r '.["firmwares"][] | select( .signed == true ) | select( .version == "'${release}'") | .sha1sum ')
+    echo "remote: $remotesha"
+    echo "local:  $localsha"
+    if [[ $remotesha != $localsha ]];then
+      echo "Found an existing $fn_name but overwriting as SHA checksum does not match"
+      # we download later when we drop out of the if...fi
+    elif [[ $remotesha == $localsha ]]
+      echo "Existing file is a match, not downloading to conserve bandwidth"
+      exit 0
+    fi
+  curl -o $fn_name $dl_url
+else
+  echo "Error: Download requested but not specified!"
+  usage
+  exit 1
+fi
