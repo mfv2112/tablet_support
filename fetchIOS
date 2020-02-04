@@ -1,5 +1,6 @@
 #!/usr/bin/env zsh
 
+
 usage() {
   print "Usage: fetchIOS -m model [ -l ][ -d -r release ]"
   exit 1
@@ -36,11 +37,12 @@ fi
 if [[ $LIST ]]; then
   releases=("${(@f)$(curl -s 'https://api.ipsw.me/v4/device/'${identifier}'?type=ipsw' | jq -r '.["firmwares"][] | select( .signed == true ) | .version')}")
   printf '%s\n' "${releases[@]}"
+  exit 0
 fi
 
 
 # Download routine
-if [[ $DOWNLOAD && ! -z $release ]]; then
+if [[ $DOWNLOAD == 'true' && ! -z $release ]]; then
   dl_url=$(curl -s 'https://api.ipsw.me/v4/device/'${identifier}'?type=ipsw' | jq -r '.["firmwares"][] | select( .signed == true ) | select( .version == "'${release}'") | .url ')
   echo "Found $release for $model / $identifier at $dl_url"
   fn_name=$(basename $dl_url)
