@@ -5,7 +5,6 @@ usage() {
   exit 1
 }
 
-#usage
 
 while getopts 'm:r:ld' arg; do
   #print "arg = [$arg]"
@@ -18,23 +17,29 @@ while getopts 'm:r:ld' arg; do
   esac
 done
 
-# abandon read approach,zsh read is broken
-# read -p "Enter the model number of the device (eg A1566)" model
-
+# Look up the model number from the back of the device and translate to the iPadX,Y string ipsw.me uses
 if [[ ! -z ${model} ]]; then
   echo "Looking up ${model}"
   identifier=$(curl -s https://api.ipsw.me/v4/model/${model} | jq -r '.identifier')
+  # Check for null return, not found, no internet etc
+  if [[ -z $identifier ]]; then
+    echo "Error: Could not get identifier for $model";exit 1
+  fi
 else
   print "Error: No model given!"
   usage
   exit 1
 fi
 
+
+# List routine to display the actively usable versions ONLY
 if [[ $LIST ]]; then
   releases=("${(@f)$(curl -s 'https://api.ipsw.me/v4/device/'${identifier}'?type=ipsw' | jq -r '.["firmwares"][] | select( .signed == true ) | .version')}")
   printf '%s\n' "${releases[@]}"
 fi
 
+
+# Download routine
 if [[ $DOWNLOAD && ! -z $release ]]; then
   dl_url=$(curl -s 'https://api.ipsw.me/v4/device/'${identifier}'?type=ipsw' | jq -r '.["firmwares"][] | select( .signed == true ) | select( .version == "'${release}'") | .url ')
   echo "Found $release for $model / $identifier at $dl_url"
@@ -53,7 +58,7 @@ if [[ $DOWNLOAD && ! -z $release ]]; then
     fi
   curl -o $fn_name $dl_url
 else
-  echo "Error: Download requested but not specified!"
+  echo "Error: Download requested but release level (-r) not specified!"
   usage
   exit 1
 fi
