@@ -50,6 +50,17 @@ $dict = @{
 
       Write-Output "  File does not exist... Downloading"
       Invoke-WebRequest -Uri $abc.url -OutFile $fileToCheck
+      
+      # retest checksum post download
+      $filehash = (Get-FileHash $fileToCheck -Algorithm SHA1)   
+      
+      if ( ${filehash}.Hash -ne ${shasum} ) {
+        Write-Output "  ERROR - No Hash match, downloaded file is incomplete or corrupt..."
+        }
+      else {
+        Write-Output "  sha1sum check confirms file is complete and valid."
+      }
+
 
     }
 
@@ -68,4 +79,23 @@ $Shortcut.TargetPath = "$fileToCheck"
 $Shortcut.Save()
 
 
+Write-Output "  Clearing up old files that are nolonger signed..."
+
+$nonsigned = Invoke-RestMethod -Uri $uri | select -expand firmwares | where signed -eq "False" | Select buildid, version, url, SHA1sum
+  foreach ( $abc in $nonsigned ) {
+    #echo "Downloading: ${abc}"
+    $buildid = ${abc}.buildid
+    $version = ${abc}.version
+    $shasum = ${abc}.SHA1sum
+
+    $fileToCheck = "$folderLocation\${identifier}_${version}_${buildid}.ipsw"
+
+
+    if (Test-Path $fileToCheck -PathType leaf) {
+      Write-Output "  Unsigned file: $fileToCheck being removed..."
+      Remove-Item –path $fileToCheck
+    }
+
+  }
 }
+
